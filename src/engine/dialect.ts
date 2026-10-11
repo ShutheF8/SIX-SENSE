@@ -19,6 +19,8 @@ const RULES: Rule[] = [
   { from: '퍼뜩', to: '빨리' },
   { from: '우예', to: '어떻게' },
   { from: '인자', to: '이제' },
+  { from: '일났다', to: '일어났다' },
+  { from: '걷어라', to: '걷어 줘' },
   { from: '싹 다', to: '전부' },
   { from: '더버', to: '더워' },
   { from: '디지기', to: '죽기' },
