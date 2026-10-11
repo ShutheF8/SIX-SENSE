@@ -6,6 +6,11 @@
 //   "그거 좀 꺼도"             -> 어떤 기기인지 되묻기 (낮음)
 //   "옆집은 에어컨 샀다더라"     -> 해당 없음
 //   "방 좀 시원하게 해줘"        -> 에어컨 24도 + 블라인드 내림 (중간)
+// 김말순 하루 생활 패턴 (페르소나 대표 발화)
+//   기상 직후 "아이고 눈부시다, 퍼뜩 좀 가려봐라" -> 블라인드 반쯤 내림 (부분 차광)
+//   오후 더위 "아 덥다 아이가, 이거 좀 우예 해봐라" -> 에어컨 켜기 + 블라인드 내림
+//   저녁 식후 "불 좀 낮차라, 눈 아프다"          -> 조명 은은하게 (30%)
+//   취침 전   "인자 잘란다, 싹 다 꺼라"           -> 조명 끄기 + 블라인드 닫기
 // 데이터 C(톤, 감정 기반, 예: "피곤하다")는 7주차 회의에서 이번 학기 범위 밖으로 정해서 규칙도 뺌
 
 import { describeChanges, normalizeDialect } from '@/engine/dialect';
@@ -29,7 +34,7 @@ function findVerb(text: string): Verb | undefined {
   if (has(text, ['꺼', '끄', '끕'])) return 'off';
   if (has(text, ['켜', '켭'])) return 'on';
   if (has(text, ['올려', '올리', '밝게'])) return 'up';
-  if (has(text, ['내려', '내리', '어둡게', '은은하게'])) return 'down';
+  if (has(text, ['내려', '내리', '어둡게', '은은하게', '낮춰', '낮추'])) return 'down';
   return undefined;
 }
 
@@ -79,6 +84,46 @@ export class RuleEngine implements IntentEngine {
         actions: [],
         confidence: 0.3,
         reply: '우리 집 기기를 움직이라는 말은 아니라서 그대로 둘게요.',
+      };
+    }
+
+    // 1-1) 취침 전: "이제 잘 거야, 전부 꺼라" -> 조명 끄고 블라인드 닫기
+    if (has(text, ['잘 거', '잘거', '자야겠', '잘게', '잘께']) || (has(text, ['전부', '다 꺼']) && verb === 'off')) {
+      const actions: DeviceAction[] = [{ device: 'light', on: false }];
+      if (home.blind.open > 0) actions.push({ device: 'blind', down: true });
+      return {
+        ...base,
+        kind: 'control',
+        monologue: false,
+        meaning: '주무시려는 것 같아요',
+        actions,
+        confidence: 0.88,
+        reply: actions.length > 1 ? '네, 불 끄고 블라인드 닫았어요. 편히 주무세요.' : '네, 불 껐어요. 편히 주무세요.',
+      };
+    }
+
+    // 1-2) 기상 직후: "눈부시다, 빨리 좀 가려 봐" -> 블라인드 반쯤 내림 (눈부심은 블라인드로만 처리, 조명이랑 안 겹치게)
+    if (has(text, ['눈부', '부셔', '가려'])) {
+      return {
+        ...base,
+        kind: 'control',
+        monologue: !has(text, ['가려']),
+        meaning: '햇빛이 눈부시다고 하셨어요',
+        actions: [{ device: 'blind', open: 50 }],
+        confidence: 0.84,
+        reply: '네, 블라인드 반쯤 내렸어요.',
+      };
+    }
+
+    // 1-3) 저녁 식후: "불 좀 낮춰라, 눈 아프다" -> 조명 은은하게
+    if (devices.includes('light') && has(text, ['낮춰', '낮추', '눈 아프', '은은'])) {
+      return {
+        ...base,
+        kind: 'control',
+        meaning: '불을 은은하게 낮춰 달라고 하셨어요',
+        actions: [{ device: 'light', on: true, brightness: 30 }],
+        confidence: 0.93,
+        reply: '네, 불 은은하게 낮췄어요.',
       };
     }
 

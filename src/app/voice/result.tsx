@@ -25,7 +25,7 @@ import { useApp } from '@/state/app-state';
 import { C } from '@/theme/colors';
 
 export default function ResultScreen() {
-  const { pending: it, home, undoSnapshot, settings, undo } = useApp();
+  const { pending: it, home, undoSnapshot, settings, undo, markGood } = useApp();
   const [undone, setUndone] = useState(false);
   const left = useRef(false);
 
@@ -69,7 +69,15 @@ export default function ResultScreen() {
             onPress={onUndo}
             style={{ flex: 1, opacity: undone ? 0.5 : 1 }}
           />
-          <PrimaryButton label="좋아요" icon="thumb-up-outline" onPress={leave} style={{ flex: 1 }} />
+          <PrimaryButton
+            label="좋아요"
+            icon="thumb-up-outline"
+            onPress={() => {
+              if (!undone) markGood(); // 기록에 "해결됐어요"로 남김
+              leave();
+            }}
+            style={{ flex: 1 }}
+          />
         </View>
       }>
       <BackHeader

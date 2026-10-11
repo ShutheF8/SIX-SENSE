@@ -41,5 +41,6 @@ export type HistoryItem = {
   summary: string; // "조명 끔", "아무것도 안 함" 같은 결과 한 줄
   confidence: number;
   route: 'auto' | 'confirm' | 'ask' | 'none';
+  feedback?: 'good'; // 실행 결과 화면에서 "좋아요"를 누름 = 해결됨
   correction?: string; // "잘못됐어요"로 사용자가 고친 내용 (기기 안에만 저장, 재학습은 다음 단계)
 };

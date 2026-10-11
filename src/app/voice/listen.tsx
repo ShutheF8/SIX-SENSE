@@ -1,6 +1,6 @@
 // 02 듣는 중
 // 음성 인식(STT)은 보드 기본 모듈을 쓸 예정이라 아직 연결 전. 그래서 지금은 "말을 들었다고 치고" 시연함
-//   마이크 누르면 이 화면이 뜨고, 3초 동안 듣는 척하다가 예시 문장 하나로 자동 진행
+//   마이크 누르면 이 화면이 뜨고, 3초 동안 듣다가(빈칸) 3초 뒤 들은 말이 들어오고, 그걸 3초 보여준 다음 자동 진행
 //   예시는 누를 때마다 김말순 시나리오 순서대로 돌아감. 아래 칩을 누르면 그 문장으로 바꾸고 3초 다시 셈
 // 나중에 STT 붙으면 녹음 -> 텍스트 -> 아래 submit() 로 똑같이 넘기면 됨
 
@@ -14,16 +14,20 @@ import { decideRoute, getEngine } from '@/engine';
 import { useApp } from '@/state/app-state';
 import { C } from '@/theme/colors';
 
-// 김말순 시나리오 4개 + 계획서 기대효과 예시 (데이터 A 사투리, B 모호한 말 기준)
+// 김말순 하루 생활 패턴 대표 발화 (기상 직후, 오후 더위, 저녁 식후, 취침 전)
+// 뒤의 두 개는 되묻기, 해당 없음 화면 시연용
 const EXAMPLES = [
-  '불 좀 꺼주이소',
-  '더버 디지기 딱 좋은 날씨고만',
+  '아이고 눈부시다, 퍼뜩 좀 가려봐라',
+  '아 덥다 아이가, 이거 좀 우예 해봐라',
+  '불 좀 낮차라, 눈 아프다',
+  '인자 잘란다, 싹 다 꺼라',
   '그거 좀 꺼도',
   '옆집은 에어컨 샀다더라',
-  '방 좀 시원하게 해줘',
-  '블라인드 쫌 올리라',
 ];
-const WAIT = 3;
+const LISTEN = 3; // 듣는 시간 (이 동안 들은 말 칸은 비어 있음)
+const SHOW = 3; // 들은 말을 보여주는 시간 (앞 1.5초는 타자 치듯 글자가 들어오고, 나머지는 다 들어온 채로)
+const TYPE = 1.5;
+const WAIT = LISTEN + SHOW;
 let nextIndex = 0; // 앱 켜져 있는 동안 다음 예시 순서 기억
 
 const VOICE_PATH = {
@@ -65,7 +69,7 @@ export default function ListenScreen() {
     }
   };
 
-  // 3초 듣는 척 -> 자동 진행. 문장 바꾸면 처음부터 다시 셈
+  // 3초 듣기 -> 들은 말 표시 -> 3초 뒤 자동 진행. 문장 바꾸면 처음부터 다시 셈
   useEffect(() => {
     if (busy || error) return;
     const started = Date.now();
@@ -91,7 +95,9 @@ export default function ListenScreen() {
     return () => loop.stop();
   }, [pulse]);
 
-  const heard = Math.min(said.length, Math.ceil(said.length * ((WAIT - left) / (WAIT - 0.6)))); // 말하는 것처럼 글자가 차례로 나타남
+  const elapsed = WAIT - left;
+  const listening = !busy && elapsed < LISTEN; // 아직 듣는 중이면 꿈틀거리는 점만
+  const typed = busy ? said.length : Math.min(said.length, Math.ceil(said.length * ((elapsed - LISTEN) / TYPE)));
 
   return (
     <Screen scroll={false}>
@@ -102,7 +108,7 @@ export default function ListenScreen() {
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <Icon name="equalizer" size={26} />
             <T v="bodyBold" color={C.primary}>
-              {busy ? '알아듣는 중' : '듣고 있어요'}
+              {busy ? '알아듣는 중' : listening ? '듣고 있어요' : '들었어요'}
             </T>
           </View>
         }
@@ -124,10 +130,10 @@ export default function ListenScreen() {
           </LinearGradient>
         </View>
         <T v="title" center style={{ marginTop: 18 }}>
-          {busy ? '알아듣는 중이에요' : '편하게 말씀하세요'}
+          {busy ? '알아듣는 중이에요' : listening ? '편하게 말씀하세요' : '이렇게 들었어요'}
         </T>
         <T v="body" color={C.sub} center>
-          {busy ? '잠깐만 기다려 주세요' : `${Math.ceil(left)}초 뒤 자동으로 넘어가요`}
+          {busy ? '잠깐만 기다려 주세요' : listening ? '말씀을 듣고 있어요' : `${Math.ceil(left)}초 뒤 자동으로 넘어가요`}
         </T>
       </View>
 
@@ -135,9 +141,14 @@ export default function ListenScreen() {
         <T v="label" color={C.sub}>
           들은 말
         </T>
-        <T v="title" style={{ marginTop: 6, minHeight: 34 }}>
-          “{said.slice(0, Math.max(heard, busy ? said.length : 0))}”
-        </T>
+        {listening ? (
+          <WigglingDots />
+        ) : (
+          <T v="title" style={{ marginTop: 6, minHeight: 34 }}>
+            “{said.slice(0, Math.max(0, typed))}
+            {typed < said.length ? <T v="title" color={C.primary}>|</T> : '”'}
+          </T>
+        )}
       </Glass>
 
       {error ? (
@@ -176,7 +187,44 @@ export default function ListenScreen() {
   );
 }
 
+// 듣는 동안 점 세 개가 차례로 위아래로 움직임 (지렁이처럼 꿈틀)
+function WigglingDots() {
+  const vals = useRef([0, 1, 2].map(() => new Animated.Value(0))).current;
+  useEffect(() => {
+    const native = Platform.OS !== 'web';
+    const one = (v: Animated.Value) =>
+      Animated.sequence([
+        Animated.timing(v, { toValue: 1, duration: 260, easing: Easing.out(Easing.quad), useNativeDriver: native }),
+        Animated.timing(v, { toValue: 0, duration: 260, easing: Easing.in(Easing.quad), useNativeDriver: native }),
+      ]);
+    const loop = Animated.loop(Animated.stagger(140, vals.map(one)));
+    loop.start();
+    return () => loop.stop();
+  }, [vals]);
+  return (
+    <View style={styles.dots}>
+      {vals.map((v, i) => (
+        <Animated.View
+          key={i}
+          style={[
+            styles.dot,
+            {
+              transform: [
+                { translateY: v.interpolate({ inputRange: [0, 1], outputRange: [0, -12] }) },
+                { scale: v.interpolate({ inputRange: [0, 1], outputRange: [1, 1.25] }) },
+              ],
+              opacity: v.interpolate({ inputRange: [0, 1], outputRange: [0.45, 1] }),
+            },
+          ]}
+        />
+      ))}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
+  dots: { flexDirection: 'row', alignItems: 'center', gap: 10, height: 34, marginTop: 6, paddingLeft: 4 },
+  dot: { width: 14, height: 14, borderRadius: 7, backgroundColor: C.primary },
   center: { flex: 1, minHeight: 0, alignItems: 'center', justifyContent: 'center' },
   micWrap: { width: 150, height: 150, alignItems: 'center', justifyContent: 'center' },
   wave: { position: 'absolute', width: 150, height: 150, borderRadius: 75, backgroundColor: C.primary },

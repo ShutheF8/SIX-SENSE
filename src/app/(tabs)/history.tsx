@@ -93,19 +93,29 @@ export default function HistoryScreen() {
                 {ROUTE_LABEL[item.route]}, 확신도 {Math.round(item.confidence * 100)}%
               </T>
 
+              {/* 상태: 교정됨 > 해결됨(좋아요) > 아직 표시 없음(고치기 버튼만 작게) */}
               {item.correction ? (
                 <View style={styles.corrected}>
-                  <Icon name="check" size={22} />
+                  <Icon name="pencil-outline" size={22} />
                   <T v="bodyBold" color={C.primaryText} style={{ flex: 1 }}>
                     교정됨: {item.correction}
                   </T>
                 </View>
-              ) : (
-                <Pressable onPress={() => setEditing(item)} style={styles.wrongBtn}>
-                  <Icon name="flag-outline" size={22} color={C.text} />
-                  <T v="bodyBold">잘못됐어요</T>
+              ) : item.feedback === 'good' ? (
+                <View style={styles.solved}>
+                  <Icon name="check-circle" size={22} color="#fff" />
+                  <T v="bodyBold" color="#fff">
+                    해결됐어요
+                  </T>
+                </View>
+              ) : item.route !== 'none' ? (
+                <Pressable onPress={() => setEditing(item)} style={styles.fixBtn}>
+                  <Icon name="pencil-outline" size={20} color={C.sub} />
+                  <T v="label" color={C.sub}>
+                    잘못 알아들었으면 고쳐 주세요
+                  </T>
                 </Pressable>
-              )}
+              ) : null}
             </Glass>
           ))}
         </View>
@@ -155,6 +165,25 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 14,
     marginTop: 12,
+  },
+  solved: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 6,
+    backgroundColor: C.on,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    marginTop: 12,
+  },
+  fixBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 6,
+    paddingVertical: 8,
+    marginTop: 6,
   },
   wrongBtn: {
     flexDirection: 'row',

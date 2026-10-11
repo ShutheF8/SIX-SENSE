@@ -28,7 +28,8 @@ export function planText(a: DeviceAction): string {
       if (a.target !== undefined) return `에어컨 켜고 ${a.target}°C`;
       return '에어컨 켜기';
     case 'blind':
-      if (a.open !== undefined) return `블라인드 ${a.open}% 열기`;
+      if (a.open === 50) return '블라인드 반쯤 내리기';
+      if (a.open !== undefined && a.open > 0 && a.open < 100) return `블라인드 ${a.open}%만 열기`;
       return a.down ? '블라인드 내리기' : '블라인드 올리기';
   }
 }
@@ -46,6 +47,7 @@ export function doneText(a: DeviceAction, home: HomeState): { title: string; sub
         sub: `냉방, 바람 ${FAN_NAME[a.fan ?? home.ac.fan]}`,
       };
     case 'blind':
+      if (a.open === 50) return { title: '블라인드 반쯤 내림', sub: '햇빛 조금 가림' };
       if (a.open !== undefined && a.open > 0 && a.open < 100) return { title: `블라인드 ${a.open}% 열림`, sub: '햇빛 조금 들어옴' };
       return blindDown(a) ? { title: '블라인드 내림', sub: '햇빛 가림' } : { title: '블라인드 올림', sub: '햇빛 들어옴' };
   }
@@ -63,6 +65,7 @@ export function summaryText(actions: DeviceAction[]): string {
       if (a.on === false) return '에어컨 끔';
       return a.target !== undefined ? `에어컨 ${a.target}°C` : '에어컨 켬';
     }
+    if (isPartial(a)) return '블라인드 반쯤';
     return blindDown(a) ? '블라인드 내림' : '블라인드 올림';
   });
   return parts.join(', ');
@@ -79,6 +82,7 @@ export function replyText(actions: DeviceAction[]): string {
       if (a.on === false) return '에어컨 껐어요';
       return a.target !== undefined ? `에어컨 ${a.target}도로 맞췄어요` : '에어컨 켰어요';
     }
+    if (isPartial(a)) return '블라인드 반쯤 내렸어요';
     return blindDown(a) ? '블라인드 내렸어요' : '블라인드 올렸어요';
   });
   return `네, ${parts.join(', ')}.`;
@@ -102,6 +106,10 @@ export function isOn(id: DeviceId, home: HomeState): boolean {
   if (id === 'light') return home.light.on;
   if (id === 'ac') return home.ac.on;
   return home.blind.open > 0; // 블라인드는 올라가 있으면(빛이 들어오면) 켜진 걸로 침
+}
+
+function isPartial(a: DeviceAction): boolean {
+  return a.device === 'blind' && a.open !== undefined && a.open > 0 && a.open < 100;
 }
 
 function blindDown(a: Extract<DeviceAction, { device: 'blind' }>): boolean {

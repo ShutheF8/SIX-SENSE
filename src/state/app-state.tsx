@@ -55,6 +55,7 @@ type Action =
   | { type: 'LOG'; item: HistoryItem }
   | { type: 'UNDO' }
   | { type: 'CORRECT'; id: string; correction: string }
+  | { type: 'GOOD' }
   | { type: 'TOGGLE_FAVORITE'; id: HomeState['favorites'][number] };
 
 // 명령 여러 개를 집 상태에 순서대로 적용
@@ -132,6 +133,12 @@ function reducer(state: State, action: Action): State {
       );
       return { ...state, home: state.undoSnapshot, undoSnapshot: null, history };
     }
+    case 'GOOD':
+      // 방금 실행한 기록에 "좋아요" 표시
+      return {
+        ...state,
+        history: state.history.map((h) => (h.id === state.lastHistoryId ? { ...h, feedback: 'good' } : h)),
+      };
     case 'CORRECT':
       return {
         ...state,
@@ -167,6 +174,7 @@ type Ctx = State & {
   logNothing: (it: Interpretation, route: HistoryItem['route']) => void;
   undo: () => void;
   correct: (id: string, correction: string) => void;
+  markGood: () => void;
   toggleFavorite: (id: HomeState['favorites'][number]) => void;
 };
 
@@ -214,6 +222,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       logNothing: (it, route) => dispatch({ type: 'LOG', item: makeItem(it, route, []) }),
       undo: () => dispatch({ type: 'UNDO' }),
       correct: (id, correction) => dispatch({ type: 'CORRECT', id, correction }),
+      markGood: () => dispatch({ type: 'GOOD' }),
       toggleFavorite: (id) => dispatch({ type: 'TOGGLE_FAVORITE', id }),
     }),
     [state],
