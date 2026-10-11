@@ -41,3 +41,7 @@ example
 # generated native folders
 /ios
 /android
+
+# IDE, 도구 설정 (각자 컴퓨터 설정이라 안 올림)
+.idea/
+.claude/
